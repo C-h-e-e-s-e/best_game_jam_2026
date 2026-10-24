@@ -6,6 +6,8 @@ using UnityEngine.InputSystem;
 [RequireComponent(typeof(BoxCollider2D))]
 public class PlayerPlatformerController : MonoBehaviour
 {
+
+    public bool IsDashing => isDashing;
     [Header("Movement")]
     public float moveSpeed = 8f;
     private float horizontalInput;
