@@ -37,26 +37,31 @@ public class OrbitingSword : MonoBehaviour
         }
     }
 
+    private float lockedAttackDirection = 1f; // Lock direction during attack
+
     void Update()
     {
         if (player == null || isShooting) return;
 
-        // Track player facing direction
-        if (playerRb != null && Mathf.Abs(playerRb.linearVelocity.x) > 0.1f)
+        // Track player facing direction (only when not attacking)
+        if (!isAttacking && playerRb != null && Mathf.Abs(playerRb.linearVelocity.x) > 0.1f)
         {
             facingDirection = Mathf.Sign(playerRb.linearVelocity.x);
         }
 
         if (isAttacking)
         {
-            currentAngle += orbitSpeed * Time.deltaTime;
+            // Use the locked direction so it never changes mid-attack
+            currentAngle -= (orbitSpeed * lockedAttackDirection) * Time.deltaTime;
             float radian = currentAngle * Mathf.Deg2Rad;
 
             float x = Mathf.Cos(radian) * orbitRadius;
             float y = Mathf.Sin(radian) * orbitRadius;
 
             transform.position = player.position + new Vector3(x, y, 0f);
-            transform.rotation = Quaternion.Euler(0, 0, currentAngle - 90f);
+
+            // Adjust sword rotation to match the locked spin direction
+            transform.rotation = Quaternion.Euler(0, 0, currentAngle - (90f * lockedAttackDirection));
 
             currentAttackTime += Time.deltaTime;
             if (currentAttackTime >= totalAttackDuration)
@@ -82,10 +87,12 @@ public class OrbitingSword : MonoBehaviour
         currentAttackTime = 0f;
         totalAttackDuration = duration;
 
+        // Lock in whichever direction you are currently facing for the duration of the attack
+        lockedAttackDirection = facingDirection;
+
         Vector3 offsetFromPlayer = transform.position - player.position;
         currentAngle = Mathf.Atan2(offsetFromPlayer.y, offsetFromPlayer.x) * Mathf.Rad2Deg;
     }
-
     public void PerformRangedShot()
     {
         if (isAttacking || isShooting) return;

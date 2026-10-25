@@ -1,34 +1,56 @@
+using System.Collections;
 using UnityEngine;
+using UnityEngine.SceneManagement;
+using UnityEngine.InputSystem;
 
 public class PlayerHealth : MonoBehaviour
 {
     [Header("Health Settings")]
-    public int maxHealth = 100;
+    public int maxHealth = 10;
     private int currentHealth;
 
-    [Header("Damage Settings")]
-    public float damageRadius = 0.8f; // How close an enemy needs to be to hurt you
-    public int touchDamage = 10;
+    [Header("Damage & Proximity Settings")]
+    public float damageRadius = 1.2f;
     public float invulnerabilityDuration = 0.5f;
     private float lastDamageTime = -999f;
 
+    [Header("UI & Visual References")]
+    public HealthUIController healthUI;
+    public GameObject deathScreenUI;
+    public SpriteRenderer playerSpriteRenderer; // Drag your player's SpriteRenderer here
+
     [Header("References")]
     private PlayerPlatformerController movementController;
+    private bool isDead = false;
 
     void Start()
     {
         currentHealth = maxHealth;
         movementController = GetComponent<PlayerPlatformerController>();
+
+        if (playerSpriteRenderer == null)
+            playerSpriteRenderer = GetComponentInChildren<SpriteRenderer>();
+
+        if (healthUI != null) healthUI.UpdateHearts(currentHealth);
+        if (deathScreenUI != null) deathScreenUI.SetActive(false);
     }
 
     void Update()
     {
+        if (isDead)
+        {
+            if (Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame)
+            {
+                RestartGame();
+            }
+            return;
+        }
+
         CheckEnemyProximity();
     }
 
     void CheckEnemyProximity()
     {
-        // Find all objects tagged as Enemy
         GameObject[] enemies = GameObject.FindGameObjectsWithTag("Enemy");
 
         foreach (GameObject enemy in enemies)
@@ -37,23 +59,28 @@ public class PlayerHealth : MonoBehaviour
 
             float distance = Vector2.Distance(transform.position, enemy.transform.position);
 
-            // If an enemy is within touching distance, try to take damage
             if (distance <= damageRadius)
             {
-                TryTakeDamage(touchDamage);
-                break; // Only take damage from one enemy per cooldown tick
+                TryTakeDamage(1);
+                break;
             }
         }
     }
 
     public void TryTakeDamage(int damage)
     {
+        if (isDead) return;
         if (movementController != null && movementController.IsDashing) return;
         if (Time.time < lastDamageTime + invulnerabilityDuration) return;
 
         currentHealth -= damage;
+        currentHealth = Mathf.Clamp(currentHealth, 0, maxHealth);
         lastDamageTime = Time.time;
-        Debug.Log($"Player took damage! HP left: {currentHealth}");
+
+        // Trigger red flash effect
+        StartCoroutine(FlashRedRoutine());
+
+        if (healthUI != null) healthUI.UpdateHearts(currentHealth);
 
         if (currentHealth <= 0)
         {
@@ -61,9 +88,27 @@ public class PlayerHealth : MonoBehaviour
         }
     }
 
+    IEnumerator FlashRedRoutine()
+    {
+        if (playerSpriteRenderer != null)
+        {
+            Color originalColor = playerSpriteRenderer.color;
+            playerSpriteRenderer.color = Color.red;
+            yield return new WaitForSeconds(0.5f);
+            playerSpriteRenderer.color = originalColor;
+        }
+    }
+
     private void Die()
     {
-        Debug.Log("Player Died!");
-         UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name);
+        isDead = true;
+        if (deathScreenUI != null) deathScreenUI.SetActive(true);
+        Time.timeScale = 0f;
+    }
+
+    private void RestartGame()
+    {
+        Time.timeScale = 1f;
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
 }

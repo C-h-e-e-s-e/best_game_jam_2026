@@ -6,12 +6,14 @@ using UnityEngine.InputSystem;
 [RequireComponent(typeof(BoxCollider2D))]
 public class PlayerPlatformerController : MonoBehaviour
 {
-
     public bool IsDashing => isDashing;
+
     [Header("Movement")]
     public float moveSpeed = 8f;
     private float horizontalInput;
     private float lastFacingDirection = 1f;
+    private SpriteRenderer spriteRenderer;
+    private Animator animator;
 
     [Header("Jumping")]
     public float jumpForce = 12f;
@@ -46,6 +48,10 @@ public class PlayerPlatformerController : MonoBehaviour
         boxCollider = GetComponent<BoxCollider2D>();
         rb.freezeRotation = true;
         originalGravity = rb.gravityScale;
+
+        // Find SpriteRenderer and Animator in children or on the object itself
+        spriteRenderer = GetComponentInChildren<SpriteRenderer>();
+        animator = GetComponentInChildren<Animator>();
     }
 
     void Update()
@@ -72,6 +78,11 @@ public class PlayerPlatformerController : MonoBehaviour
             if (Keyboard.current.spaceKey.wasPressedThisFrame)
             {
                 jumpBufferCounter = jumpBufferTime;
+
+                if (animator != null)
+                {
+                    animator.SetTrigger("JumpTrigger");
+                }
             }
 
             // Variable jump height
@@ -92,7 +103,22 @@ public class PlayerPlatformerController : MonoBehaviour
             }
         }
 
-        // 2. Automatic Ground Check
+        // 2. Sprite Flipping & Animations
+        if (horizontalInput > 0.01f)
+        {
+            spriteRenderer.flipX = false; // Facing right
+        }
+        else if (horizontalInput < -0.01f)
+        {
+            spriteRenderer.flipX = true;  // Facing left
+        }
+
+        if (animator != null)
+        {
+            animator.SetFloat("Speed", Mathf.Abs(horizontalInput));
+        }
+
+        // 3. Automatic Ground Check
         Bounds bounds = boxCollider.bounds;
         RaycastHit2D hit = Physics2D.BoxCast(bounds.center, new Vector2(bounds.size.x * 0.9f, 0.1f), 0f, Vector2.down, bounds.extents.y + groundCheckExtraDepth, groundLayer);
 
@@ -113,7 +139,7 @@ public class PlayerPlatformerController : MonoBehaviour
             jumpBufferCounter -= Time.deltaTime;
         }
 
-        // 3. Execute Jump
+        // 4. Execute Jump
         if (jumpBufferCounter > 0)
         {
             if (coyoteTimeCounter > 0f)
@@ -154,7 +180,7 @@ public class PlayerPlatformerController : MonoBehaviour
         // Determine dash direction (use current input or last facing direction)
         float dashDirection = horizontalInput != 0f ? Mathf.Sign(horizontalInput) : lastFacingDirection;
 
-        // Apply high horizontal velocity
+        // Apply high horizontal velocity (Fixed the missing multiplication operator here)
         rb.linearVelocity = new Vector2(dashDirection * dashPower, 0f);
 
         // Wait for dash duration

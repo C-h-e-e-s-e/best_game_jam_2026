@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections;
 
 [RequireComponent(typeof(Rigidbody2D))]
 [RequireComponent(typeof(BoxCollider2D))]
@@ -72,11 +73,21 @@ public class Enemy : MonoBehaviour
         if (player == null) return;
 
         float direction = Mathf.Sign(player.position.x - transform.position.x);
+
+        // Fixed the missing multiplication operator here
         rb.linearVelocity = new Vector2(direction * moveSpeed, rb.linearVelocity.y);
 
+        // Flip sprite based on movement direction (true = facing left, false = facing right)
         if (spriteRenderer != null)
         {
-            spriteRenderer.flipX = (direction < 0f);
+            if (direction < 0f)
+            {
+                spriteRenderer.flipX = false;
+            }
+            else if (direction > 0f)
+            {
+                spriteRenderer.flipX = true;
+            }
         }
     }
 
@@ -89,7 +100,9 @@ public class Enemy : MonoBehaviour
     public void TakeDamage(int damage)
     {
         currentHealth -= damage;
-        Debug.Log($"Enemy took {damage} damage! HP left: {currentHealth}");
+
+        // Flash red when hit
+        StartCoroutine(EnemyFlashRoutine());
 
         if (currentHealth <= 0)
         {
@@ -97,8 +110,29 @@ public class Enemy : MonoBehaviour
         }
     }
 
+    IEnumerator EnemyFlashRoutine()
+    {
+        if (spriteRenderer != null)
+        {
+            Color originalColor = spriteRenderer.color;
+            spriteRenderer.color = Color.red;
+            yield return new WaitForSeconds(0.5f);
+            spriteRenderer.color = originalColor;
+        }
+    }
+
     private void Die()
     {
+        // Notify UpgradeManager directly
+        if (UpgradeManager.Instance != null)
+        {
+            UpgradeManager.Instance.AddKill();
+        }
+        else
+        {
+            Debug.LogWarning("UpgradeManager Instance not found in scene!");
+        }
+
         Destroy(gameObject);
     }
 
